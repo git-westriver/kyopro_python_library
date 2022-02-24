@@ -7,6 +7,11 @@ TODO:　left_rotateとright_rotateは統一できそう
 TODO: ノードを木から消去する時に消去ノードxの子yに対してy.parを消去するのを忘れてる, かも
         -> 根かどうかの判定は == self.rootでやったほうがよい
 TODO: totalの計算で根の判定を.par == Noneでやっているところがある. 
+
+更新履歴
+    2021/09/05
+    * successorのバグを修正（赤黒木に対する操作は問題ないが，外部から利用するとバグった）
+    * checkをcheck_redblackに名前変更，check_binary_treeを追加
 """
 import copy
 
@@ -21,7 +26,7 @@ class RBT():
             return
         self.root = node(root_key)
     
-    def check(self):
+    def check_redblack(self):
         """
         赤黒木条件が壊れていないかを判定する
         :return: 0(壊れていない)/1(「赤の子は黒」が壊れている)/2(黒深さ条件が壊れている)
@@ -68,6 +73,25 @@ class RBT():
                     return 2
         
         return 0
+    
+    def check_binary_tree(self):
+        """
+        2分木条件（大小に関する条件がこわれていないかを確認する．
+        :return: 壊れていればFalse, 壊れていなければTrueを出力
+        """
+        x = self.root
+        stack = []
+        while stack:
+            y = stack.pop()
+            if y.left != None:
+                if y.left.key > y.key:
+                    return False
+                stack.append(y.left)
+            if y.right != None:
+                if y.right.key < y.key:
+                    return False
+                stack.append(y.right)
+        return True
 
 
     def search(self, value):
@@ -260,14 +284,19 @@ class RBT():
         """
         与えられたノードxに対し、そのノードの次に大きい値を持つノードを返す
         """
+        
         if x.right == None:
             # 右の子がいないときは, xの先祖で、xより大きい（xを左部分木にもつ）ところまで遡る
-            xx = copy.copy(x)
-            # xxの親ノードp
-            p = xx.par
-            while xx == p.right:
+            p = x.par
+            if x == p.left:
+                pass
+            else:
                 xx = p
                 p = xx.par
+                while xx == p.right:
+                    assert p.key <= xx.key# WA
+                    xx = p
+                    p = xx.par
 
             # 親pが答え
             return p
@@ -564,7 +593,8 @@ if __name__ == '__main__':
     for x in range(num):
         print('DELETE: ', x)
         T.delete(T.search(x))
-        print('CONDITION CHECK: ', T.check())
+        print('CONDITION CHECK: ', T.check_redblack(), T.check_binary_tree())
+        assert T.check_redblack() == 0 and T.check_binary_tree()
         display_rbt(T)
         T.insert(x)
 
@@ -580,10 +610,11 @@ if __name__ == '__main__':
             print('-- after delete --')
             display_rbt(T)
 
-            print('CONDITION CHECK: ', T.check())
-            if T.check() > 0:
+            print('CONDITION CHECK: ', T.check_redblack(), T.check_binary_tree())
+            if T.check_redblack() > 0:
                 print('SEED: ', seed1)
                 raise Exception
+            assert T.check_binary_tree()
             T.insert(x)
             T.insert(y)
     
@@ -599,10 +630,11 @@ if __name__ == '__main__':
             print('-- after delete --')
             display_rbt(T)
 
-            print('CONDITION CHECK: ', T.check())
-            if T.check() > 0:
+            print('CONDITION CHECK: ', T.check_redblack(), T.check_binary_tree())
+            if T.check_redblack() > 0:
                 print('SEED: ', seed1)
                 raise Exception
+            assert T.check_binary_tree()
             T.insert(x)
             T.insert(y)
     
@@ -613,9 +645,10 @@ if __name__ == '__main__':
         print('DELETE: ', x)
         T.delete(T.search(x))
         display_rbt(T)
-        print('CONDITION CHECK: ', T.check())
-        if T.check() > 0:
+        print('CONDITION CHECK: ', T.check_redblack(), T.check_binary_tree())
+        if T.check_redblack() > 0:
             print('SEED: ', seed1, seed2)
+        assert T.check_binary_tree()
     
     print('Check has finished correctly. ')
     print('SEED: ', seed1, seed2)

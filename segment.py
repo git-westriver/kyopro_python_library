@@ -60,7 +60,7 @@ init(a)
 
 # 以下, 実行例
 print(query(4,5))# 9
-print(query(7,9))# 3
+print(query(7,11))# 3
 
 update(5, 50)
 

@@ -1,12 +1,19 @@
 """
 赤黒木
-rootが変更されると困るのでやっぱりclassとして用意しておいたほうが良さそう.
-デバッグ用問題: ARC033 C 
+rootが変更されると困るのでやっぱりclassとして用意しておいたほうが良さそう. 
+
+insertをkey指定ではなく, nodeをつくってから行ってnode指定にできるように変更
+これによって, nodeに比較的自由に属性をもたせることができるようになった. 
+
+key, color以外の(木上での演算を持たない)属性をもたせて正しく更新できているかどうかのテストを作成したほうがよさそう. 
+(AHC002である程度正確に動くことは確認済み)
+
+デバッグ用問題: ARC033 C ＜未確認＞
 
 TODO:　left_rotateとright_rotateは統一できそう
 TODO: ノードを木から消去する時に消去ノードxの子yに対してy.parを消去するのを忘れてる, かも
         -> 根かどうかの判定は == self.rootでやったほうがよい
-TODO: totalの計算で根の判定を.par == Noneでやっているところがある.
+TODO: totalの計算で根の判定を.par == Noneでやっているところがある. 
 
 更新履歴
     2021/09/05
@@ -154,25 +161,6 @@ class RBT():
         y.left = b
         if b != None:
             b.par = y
-        
-        # サイズとtotalの変更
-        a = x.left
-        c = y.right
-        sa = 0
-        sc = 0
-        ta = 0
-        tc = 0
-        if a != None and a.key != None:# empty_nodeはkeyのみがNoneなので注意
-            sa = a.size
-            ta = a.total
-        if c != None and c.key != None:
-            sc = c.size
-            tc = c.total
-        
-        x.size += sc + 1
-        y.size -= sa + 1
-        x.total += tc + y.key
-        y.total -= ta + x.key
 
     def left_rotate(self, y):
         """
@@ -203,25 +191,6 @@ class RBT():
         x.right = b
         if b != None:
             b.par = x
-        
-        # サイズとtotalの変更
-        a = x.left
-        c = y.right
-        sa = 0
-        sc = 0
-        ta = 0
-        tc = 0
-        if a != None and a.key != None:# empty_nodeはkeyのみがNoneなので注意
-            sa = a.size
-            ta = a.total
-        if c != None and c.key != None:
-            sc = c.size
-            tc = c.total
-        
-        x.size -= sc + 1
-        y.size += sa + 1
-        x.total -= tc + y.key
-        y.total += ta + x.key
     
     def insert(self, key):
         if self.root == None:
@@ -302,11 +271,6 @@ class RBT():
         y = node(key)
 
         while True:
-            # yはかならずxを根とする部分木に入るので
-            # yのkeyをxのtotalに加算
-            x.total += key
-            # xのサイズを+1
-            x.size += 1
 
             if key <= x.key and x.left == None:
                 x.left = y
@@ -322,61 +286,6 @@ class RBT():
                 x = x.right
         
         return y, x
-    
-    def Nth_largest(self, N):
-        """
-        N番目に大きい「ノード」のオブジェクトを返す
-        """
-        if N > self.root.size:
-            return None
-        
-        x = self.root
-
-        while True:
-            if x.right == None:
-                # 右部分木なし
-                # N = 1の場合はx.keyが答え(除外しないとx.leftでNoneを指定して次のループでエラーになる)
-                if N == 1:
-                    return x
-                # そうでない場合、左部分木の中に答えあり
-                N -= 1
-                x = x.left
-            elif N == x.right.size + 1:
-                # xの値が答え
-                return x
-            elif N > x.right.size + 1:
-                # 左部分技の中に答えあり
-                N -= x.right.size + 1
-                x = x.left
-            elif N <= x.right.size:
-                # 右部分木のなかに答えあり
-                x = x.right
-    
-    def partial_sum_Nth_larger(self, N):
-        """
-        N番目に大きい要素以上の和
-        """
-        N = min(N, self.root.size)
-
-        x = self.root
-        S = 0
-
-        while True:
-            if x.right == None:
-                if N == 1:
-                    return S + x.key
-                else:
-                    S += x.key
-                    N -= 1
-                    x = x.left
-            elif N == x.right.size + 1:
-                return S + x.key + x.right.total
-            elif N > x.right.size + 1:
-                S += x.key + x.right.total
-                N -= x.right.size + 1
-                x = x.left
-            else:
-                x = x.right
     
     def successor(self, x):
         """
@@ -571,14 +480,6 @@ class RBT():
                 else:
                     p.right = None
                 x.par = None
-            
-                # pから根まで遡り, sizeを1減らし, totalをx.key減らす
-                while True:
-                    p.size -= 1
-                    p.total -= x.key
-                    if p.par == None:
-                        break
-                    p = p.par
 
             else:
 
@@ -586,21 +487,12 @@ class RBT():
                 # rb_fix_deleteをうまく動かすため, keyをNoneとした空のノードを用意する
                 empty_node = node(None)
                 empty_node.par = p
-                empty_node.size = 0# empty_nodeに関しては自分のサイズも0にする
                 empty_node.color = False
                 if p.left == x:
                     p.left = empty_node
                 elif p.right == x:
                     p.right = empty_node
                 x.par = None
-
-                # pから根まで遡り, sizeを1減らし, totalをx.key減らす
-                while True:
-                    p.size -= 1
-                    p.total -= x.key
-                    if p.par == None:
-                        break
-                    p = p.par
             
                 self.rb_fix_delete(empty_node)
         
@@ -628,14 +520,6 @@ class RBT():
                 p.right = y
             x.par = None
             y.par = p
-
-            # pから根まで遡り, sizeを1減らし, totalをx.key減らす
-            while True:
-                p.size -= 1
-                p.total -= x.key
-                if p.par == None:
-                    break
-                p = p.par
             
             # この場合で, かつ削除したノードの色が黒の場合は赤黒木条件を保存するようにする必要がある. 
             if not x.color:
@@ -645,25 +529,37 @@ class RBT():
         else:
             # 次節点yを持ってくる. yはその定義から左の子を持たない. 
             y = self.successor(x)
+            # yの削除時にxの位置が変わってleft, rightがいなくなったりするっぽい
             self.delete(y)
 
-            # xのところをyで置き換える.
+            ### updated
+            # xのところを
+            # yのkeyおよびその他の属性をコピーしたものに
+            # xのcolorを代入したもの
+            # で置き換える.
             # keyはyの値にする
-            pre_x_key = x.key
-            x.key = y.key
+            # pre_x_key = x.key
+            new_x = copy.deepcopy(y)
+            new_x.color = x.color
 
-            # totalはxのkeyの増加分とx.totalで再構成
-            x.total += x.key - pre_x_key
-            # totalを根に向かって更新
-            p = x.par
-            if p == None:
-                return
-            while p != None:
-                p.total += x.key - pre_x_key
-                p = p.par
+            new_x.par = x.par
+            if x != self.root:
+                if x == x.par.left:
+                    x.par.left = new_x
+                elif x == x.par.right:
+                    x.par.right = new_x
+            elif x == self.root:
+                self.root = new_x
 
-            # sizeはそのまま
-            # 値の入れ替えを行うだけなので, 赤黒木条件を保存するための処理も必要ない
+            new_x.left = x.left
+            if x.left != None:
+                x.left.par = new_x
+
+            new_x.right = x.right
+            if x.right != None:
+                x.right.par = new_x
+
+            # 色の変化はないので, 赤黒木条件を保存するための処理も必要ない
                 
 class node():
 
@@ -677,12 +573,6 @@ class node():
 
         # 親
         self.par = None
-
-        # この節点を根とする部分木の総和。生成時は自分のkeyの値。
-        self.total = key
-
-        # この節点を根とする部分木の大きさ。生成時は1。
-        self.size = 1
 
 def display_rbt(T, depth = 4):
     """
@@ -700,7 +590,7 @@ def display_rbt(T, depth = 4):
             line += 1
         x = q.popleft()
         try:
-            print(x.key, x.color, x.size)
+            print(x.key, x.color)
             q.append(x.left)
             q.append(x.right)
         except:
@@ -713,91 +603,6 @@ def display_rbt(T, depth = 4):
 if __name__ == '__main__':
 
     import time
-
-    start = time.time()
-
-    T = RBT(4)
-    T.insert(3)
-    T.insert(5)
-    T.insert(7)
-    T.insert(6)
-    T.insert(2)
-    T.insert(1)
-    T.insert(12)
-    T.insert(8)
-
-    r = T.root
-    
-    
-    """
-    # insertの検証
-    r = T.root
-    print(r.key)
-    print(r.left.key)
-    print(r.right.key)
-    print(r.left.left.key)
-    print(r.left.right.key)
-    print(r.right.left.key)
-    print(r.right.right.key)
-    print(r.right.right.left.key)
-    print(r.right.right.right.key)
-    """
-
-    # insertによるsizeとtotalの変更正当性の検証
-    print(r.size)
-    print(r.right.left.total)
-    # ここまではtotal, sizeも正しく動いていそう
-
-    T.delete(r.right)
-    T.delete(r)
-
-    # deleteの検証
-    print(r.key)
-    print(r.left.key)
-    print(r.right.key)
-    print(r.left.left.key)
-    print(r.left.right.key)
-    print(r.right.left.key)
-    print(r.right.right.key)
-    # print(r.right.right.right.key)
-
-    T.insert(11)
-    T.insert(4)
-    T.delete(T.root.left.right)
-    T.delete(T.root.right.right)
-
-    print(r.key)
-    print(r.left.key)
-    print(r.right.key)
-    print(r.left.left.key)
-    print(r.left.right.key)
-    print(r.right.left.key)
-    print(r.right.right.key)
-
-    # deleteによるsizeとtotalの変更正当性の検証
-    print(r.size)
-    print(r.left.size)
-    print(r.right.size)
-    print(r.total)
-    print(r.key)
-    print(r.left.total)
-    print(r.right.total)
-    print(r.right.key)
-    print(r.right.right.total)
-    print(r.right.left.total)
-
-    # その他関数の正当性の検証
-    print(T.Nth_largest(4))
-    print(T.Nth_largest(8))
-
-    print(T.partial_sum_Nth_larger(4))
-    print(T.partial_sum_Nth_larger(8))
-
-    # end = time.time()
-    # print(end-start)# 0.0001499652862548828
-
-    print("##########################")
-    print("New One")
 
     num = 55
 
