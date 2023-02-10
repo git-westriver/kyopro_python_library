@@ -1,10 +1,28 @@
 """
 赤黒木
-no_use のなかのmodify3と同じ
+rootが変更されると困るのでやっぱりclassとして用意しておいたほうが良さそう. 
 
-2023/02/10
-複数の木を用意してノードを異なる木の中で再利用すると壊れることを確認
-- 解決策：ノードは再利用せずに同じ値を持っているものを新しく作り直す
+insertをkey指定ではなく, nodeをつくってから行ってnode指定にできるように変更←これはmodify3で実装？じゃあmodify2は何
+これによって, nodeに比較的自由に属性をもたせることができるようになった. 
+
+key, color以外の(木上での演算を持たない)属性をもたせて正しく更新できているかどうかのテストを作成したほうがよさそう. 
+(AHC002である程度正確に動くことは確認済み)
+
+デバッグ用問題: ARC033 C ＜未確認＞
+
+TODO:　left_rotateとright_rotateは統一できそう
+TODO: ノードを木から消去する時に消去ノードxの子yに対してy.parを消去するのを忘れてる, かも
+        -> 根かどうかの判定は == self.rootでやったほうがよい
+TODO: totalの計算で根の判定を.par == Noneでやっているところがある. 
+
+更新履歴
+    2021/09/05
+    * successorのバグを修正（赤黒木に対する操作は問題ないが，外部から利用するとバグった）
+    * checkをcheck_redblackに名前変更，check_binary_treeを追加
+    2022/05/08
+    * successorがいないときにNoneを出力するように追記
+    2022/08/13
+    * 「successorがいないときにNoneを出力するように追記」にミスが有ったので修正
 """
 import copy
 
@@ -13,11 +31,11 @@ class RBT():
     「以下」の場合は左へ, 「より大きい」の場合は右へ
     """
 
-    def __init__(self, root_key=0, other=None, empty_tree=False):
+    def __init__(self, root_key=0, empty_tree=False):
         if empty_tree:
             self.root = None
             return
-        self.root = node(root_key, other=other)
+        self.root = node(root_key)
     
     def check_redblack(self):
         """
@@ -178,16 +196,16 @@ class RBT():
         if b != None:
             b.par = x
     
-    def insert(self, nod):
+    def insert(self, key):
         if self.root == None:
-            self.root = nod
+            self.root = node(key)
             return
 
-        # nodの親z
-        z = self.normal_insert(nod)
+        # 挿入したノードx, xの親z
+        x, z = self.normal_insert(key)
 
         while z.color:
-            # zは常にnod.parになるようにする
+            # zは常にx.parになるようにする
         
             # zが根の場合はzを黒にして終了
             if z == self.root:
@@ -209,73 +227,89 @@ class RBT():
                 z.color = False
                 y.color = False
 
-                nod = w
-                # nodが根の場合は親が定義できない(ため赤黒木条件を満たす)から終了
-                if nod == self.root:
+                x = w
+                # xが根の場合は親が定義できない(ため赤黒木条件を満たす)から終了
+                if x == self.root:
                     break
-                z = nod.par
+                z = x.par
                 continue # zが赤かもしれないので繰り返す
             
             # yが黒でzがwの左の子の場合
             elif z == w.left:
-                # nodが右の子の場合
-                if nod == z.right:
-                    self.left_rotate(nod)
-                    nod = z
-                    z = nod.par
+                # xが右の子の場合
+                if x == z.right:
+                    self.left_rotate(x)
+                    x = z
+                    z = x.par
                     # 次の場合に移る
                 
-                # nodが左の子の場合(前の場合から移る可能性があるのでここはif)
-                if nod == z.left:
+                # xが左の子の場合(前の場合から移る可能性があるのでここはif)
+                if x == z.left:
                     self.right_rotate(z)
                     z.color = False
                     w.color = True
             
             # yが黒でzがwの右の子の場合
             else:
-                # nodが左の子の場合
-                if nod == z.left:
-                    self.right_rotate(nod)
-                    nod = z
-                    z = nod.par
+                # xが左の子の場合
+                if x == z.left:
+                    self.right_rotate(x)
+                    x = z
+                    z = x.par
                     # 次の場合に移る
 
-                # nodが右の子の場合(前の場合から移る可能性があるのでここはif)
-                if nod == z.right:
+                # xが右の子の場合(前の場合から移る可能性があるのでここはif)
+                if x == z.right:
                     self.left_rotate(z)
                     z.color = False
                     w.color = True
 
-    def normal_insert(self, nod):
+    def normal_insert(self, key):
         """
         :return: 挿入したノードのポインタy, yの親x
         """
 
         # 探索するノード
         x = self.root
+        # 追加するノード
+        y = node(key)
 
         while True:
 
-            if nod.key <= x.key and x.left == None:
-                x.left = nod
-                nod.par = x
+            if key <= x.key and x.left == None:
+                x.left = y
+                y.par = x
                 break
-            elif nod.key <= x.key:
+            elif key <= x.key:
                 x = x.left
-            elif nod.key > x.key and x.right == None:
-                x.right = nod
-                nod.par = x
+            elif key > x.key and x.right == None:
+                x.right = y
+                y.par = x
                 break
             else:
                 x = x.right
         
-        return x
+        return y, x
     
     def successor(self, x):
         """
         与えられたノードxに対し、そのノードの次に大きい値を持つノードを返す
         """
+        
         if x.right == None:
+            # 右の子がいないときは, xの先祖で、xより大きい（xを左部分木にもつ）ところまで遡る
+            # p = x.par
+            # if x == p.left:
+            #     pass
+            # else:
+            #     xx = p
+            #     p = xx.par
+            #     # if p == self.root: # ここ，完全な嘘
+            #     #     return None
+            #     while xx == p.right:
+            #         assert p.key <= xx.key# WA
+            #         xx = p
+            #         p = xx.par
             xx = x
             p = xx.par
             while xx == p.right:
@@ -542,7 +576,7 @@ class RBT():
                 
 class node():
 
-    def __init__(self, key, left=None, right=None, other=None):
+    def __init__(self, key, left=None, right=None):
         self.key = key
         self.left = left
         self.right = right
@@ -552,9 +586,6 @@ class node():
 
         # 親
         self.par = None
-
-        # その他の属性
-        self.other = other
 
 def display_rbt(T, depth = 4):
     """
@@ -583,7 +614,6 @@ def display_rbt(T, depth = 4):
 
 
 if __name__ == '__main__':
-
     import time
 
     num = 55
@@ -598,8 +628,7 @@ if __name__ == '__main__':
     T = RBT(I[0])
 
     for x in I[1:]:
-        nod = node(x, other=1)
-        T.insert(nod)
+        T.insert(x)
 
     display_rbt(T)
 
@@ -609,8 +638,7 @@ if __name__ == '__main__':
         print('CONDITION CHECK: ', T.check_redblack(), T.check_binary_tree())
         assert T.check_redblack() == 0 and T.check_binary_tree()
         display_rbt(T)
-        nod = node(x, other=1)
-        T.insert(nod)
+        T.insert(x)
 
     for x in range(num):
         for y in range(x+1, num):
@@ -629,10 +657,8 @@ if __name__ == '__main__':
             if T.check_redblack() > 0:
                 print('SEED: ', seed1)
                 raise Exception
-            nod1 = node(x, other=1)
-            nod2 = node(y, other=1)
-            T.insert(nod1)
-            T.insert(nod2)
+            T.insert(x)
+            T.insert(y)
     
     for x in range(num):
         for y in range(x):
@@ -651,10 +677,8 @@ if __name__ == '__main__':
             if T.check_redblack() > 0:
                 print('SEED: ', seed1)
                 raise Exception
-            nod1 = node(x, other=1)
-            nod2 = node(y, other=1)
-            T.insert(nod1)
-            T.insert(nod2)
+            T.insert(x)
+            T.insert(y)
     
     seed2 = pow(2, int(time.time()), 936435837)
     random.seed(seed2)
