@@ -2,9 +2,6 @@
 全方位木DP
 参考：https://qiita.com/Kiri8128/items/a011c90d25911bdb3ed3
 """
-
-from collections import deque
-
 def rerooting_dp(graph):
     N = len(graph)
     root = 0
