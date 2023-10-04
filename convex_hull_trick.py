@@ -1,3 +1,7 @@
+"""
+コード：https://tjkendev.github.io/procon-library/python/convex_hull_trick/li_chao_tree.html
+参考：https://smijake3.hatenablog.com/entry/2018/06/16/144548
+"""
 class LiChaoTree:
     """
     X: 参照する座標 N 個を入れる
